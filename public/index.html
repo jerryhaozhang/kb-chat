@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>奕海智能销售助理</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0%' y1='0%' x2='100%' y2='100%'><stop offset='0%' style='stop-color:%231e40af'/><stop offset='100%' style='stop-color:%233b82f6'/></linearGradient></defs><circle cx='50' cy='50' r='50' fill='url(%23g)'/><text x='50' y='68' text-anchor='middle' font-size='52' font-weight='bold' font-family='sans-serif' fill='white'>助</text></svg>" />
+<style>
+/* ================================================================
+   CSS Variables
+   ================================================================ */
+:root {
+  --color-primary:        #2563EB;
+  --color-primary-hover:  #1D4ED8;
+  --color-primary-light:  #DBEAFE;
+  --color-bg:             #F3F4F6;
+  --color-bubble-ai:      #FFFFFF;
+  --color-bubble-user:    #2563EB;
+  --color-text-primary:   #111827;
+  --color-text-secondary: #6B7280;
+  --color-text-user:      #FFFFFF;
+  --color-border:         #E5E7EB;
+  --color-error:          #EF4444;
+  --color-error-bg:       #FEF2F2;
+  --radius-sm:            8px;
+  --radius-md:            16px;
+  --radius-lg:            24px;
+  --shadow-sm:            0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md:            0 4px 6px rgba(0,0,0,0.07);
+  --font-sans:            -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans SC", sans-serif;
+  --font-mono:            "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", monospace;
+}
+
+/* ================================================================
+   Reset & Base
+   ================================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ================================================================
+   App Container
+   ================================================================ */
+#app {
+  display: flex;
+  flex-direction: column;
+  max-width: 800px;
+  height: 100%;
+  margin: 0 auto;
+  background: var(--color-bg);
+}
+
+/* ================================================================
+   Header
+   ================================================================ */
+#header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  height: 56px;
+  padding: 0 16px;
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+#header h1 {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--color-text-primary);
+}
+
+/* ================================================================
+   Messages Area
+   ================================================================ */
+#messages {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 16px 80px 16px;
+  transition: padding-bottom 0.15s ease;
+  scroll-behavior: smooth;
+}
+
+/* ================================================================
+   Message Bubbles
+   ================================================================ */
+.bubble {
+  width: fit-content;
+  max-width: 80%;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  font-size: 15px;
+  line-height: 1.6;
+  animation: fadeInUp 0.2s ease;
+}
+
+.bubble--ai {
+  background: var(--color-bubble-ai);
+  color: var(--color-text-primary);
+  margin-right: auto;
+  box-shadow: var(--shadow-sm);
+}
+
+.bubble--user {
+  background: var(--color-bubble-user);
+  color: var(--color-text-user);
+  margin-left: auto;
+}
+
+.bubble--error {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+  margin-right: auto;
+  font-size: 14px;
+}
+
+/* bubble inner markdown styles */
+.bubble p { margin-bottom: 8px; }
+.bubble p:last-child { margin-bottom: 0; }
+.bubble strong { font-weight: 600; }
+.bubble em { font-style: italic; }
+
+.bubble h1, .bubble h2, .bubble h3, .bubble h4, .bubble h5, .bubble h6 {
+  margin: 12px 0 6px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.bubble h1 { font-size: 1.4em; }
+.bubble h2 { font-size: 1.3em; }
+.bubble h3 { font-size: 1.15em; }
+.bubble h4 { font-size: 1.05em; }
+.bubble h5 { font-size: 1em; }
+.bubble h6 { font-size: 0.95em; }
+
+.bubble ul, .bubble ol {
+  margin: 6px 0;
+  padding-left: 20px;
+}
+.bubble li { margin-bottom: 3px; }
+
+.bubble code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  background: rgba(0,0,0,0.06);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.bubble--user code {
+  background: rgba(255,255,255,0.2);
+}
+
+.bubble pre {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.bubble pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+}
+
+.bubble table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 14px;
+  line-height: 1.5;
+  display: block;
+  overflow-x: auto;
+}
+
+.bubble th, .bubble td {
+  border: 1px solid var(--color-border);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.bubble th {
+  background: #F9FAFB;
+  font-weight: 600;
+}
+
+.bubble hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 12px 0;
+}
+
+.bubble a {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.bubble--user a { color: #fff; }
+
+.bubble blockquote {
+  border-left: 3px solid var(--color-primary);
+  padding-left: 12px;
+  margin: 8px 0;
+  color: var(--color-text-secondary);
+}
+
+/* ================================================================
+   Loader
+   ================================================================ */
+#loader {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  max-width: 80%;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+  background: var(--color-bubble-ai);
+  color: var(--color-text-secondary);
+  box-shadow: var(--shadow-sm);
+  font-size: 15px;
+}
+
+#loader.visible { display: flex; }
+
+#loader .dots {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+#loader .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-text-secondary);
+  animation: bounce 1.4s infinite ease-in-out;
+}
+
+#loader .dot:nth-child(1) { animation-delay: 0s; }
+#loader .dot:nth-child(2) { animation-delay: 0.2s; }
+#loader .dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* ================================================================
+   Input Area
+   ================================================================ */
+#input-area {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 800px;
+  z-index: 10;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--color-bg);
+  border-top: 1px solid var(--color-border);
+  min-height: 64px;
+}
+
+#message-input {
+  flex: 1;
+  padding: 12px 16px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--color-text-primary);
+  background: var(--color-bubble-ai);
+  border: 1px solid #ddd;
+  border-radius: var(--radius-lg);
+  outline: none;
+  resize: none;
+  overflow-y: hidden;
+  min-height: 44px;
+  max-height: 120px;
+  transition: border-color 0.2s;
+}
+
+#message-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+#message-input::placeholder {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+#message-input:disabled {
+  background: #F9FAFB;
+  cursor: not-allowed;
+}
+
+#send-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s;
+  line-height: 1;
+}
+
+#send-btn:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+#send-btn:disabled {
+  background: #D1D5DB;
+  cursor: not-allowed;
+}
+
+#send-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+/* ================================================================
+   Error Toast
+   ================================================================ */
+#error-toast {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%) translateY(-100%);
+  z-index: 100;
+  max-width: 400px;
+  width: calc(100% - 32px);
+  padding: 12px 16px;
+  background: var(--color-error);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: transform 0.3s ease;
+}
+
+#error-toast.visible {
+  transform: translateX(-50%) translateY(0);
+}
+
+#error-toast .toast-close {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 0 0 12px;
+  line-height: 1;
+  opacity: 0.8;
+}
+#error-toast .toast-close:hover { opacity: 1; }
+
+/* ================================================================
+   Welcome Message
+   ================================================================ */
+.welcome-bubble {
+  width: fit-content;
+  max-width: 80%;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+  background: var(--color-bubble-ai);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-sm);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* ================================================================
+   Animations
+   ================================================================ */
+@keyframes bounce {
+  0%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-6px); }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ================================================================
+   Responsive
+   ================================================================ */
+@media (max-width: 639px) {
+  #app {
+    max-width: 100%;
+  }
+
+  #header {
+    display: none;
+  }
+
+  #input-area {
+    max-width: 100%;
+  }
+
+  .bubble {
+    max-width: 85%;
+  }
+
+  #loader {
+    max-width: 85%;
+  }
+
+  #message-input {
+    font-size: 16px; /* 防 iOS 缩放 */
+  }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header id="header">
+    <h1>奕海智能销售助理</h1>
+  </header>
+
+  <main id="messages" role="log" aria-live="polite">
+    <div class="welcome-bubble">你好！我是奕海智能销售助理，有什么可以帮你的？</div>
+    <div id="loader" role="status" aria-label="正在加载回复">
+      <span>正在思考</span>
+      <span class="dots">
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+      </span>
+    </div>
+  </main>
+
+  <footer id="input-area">
+    <textarea id="message-input" rows="1" placeholder="在这里提出您的问题..." aria-label="在这里提出您的问题"></textarea>
+    <button id="send-btn" disabled aria-label="发送消息">
+      <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </footer>
+
+  <div id="error-toast">
+    <span id="toast-text"></span>
+    <button class="toast-close" aria-label="关闭">&times;</button>
+  </div>
+</div>
+
+<script>
+/* ================================================================
+   KB Chat — Frontend Logic
+   ================================================================ */
+(function () {
+  'use strict';
+
+  /* ---- DOM refs ---- */
+  const messagesEl   = document.getElementById('messages');
+  const inputEl      = document.getElementById('message-input');
+  const sendBtn      = document.getElementById('send-btn');
+  const loaderEl     = document.getElementById('loader');
+  const toastEl      = document.getElementById('error-toast');
+  const toastTextEl  = document.getElementById('toast-text');
+
+  let isLoading       = false;
+  let isComposing     = false;
+  let toastTimer      = null;
+  let abortController = null;
+
+  /* ---- Init ---- */
+
+  /* ---- Mobile keyboard ---- */
+  const inputArea = document.getElementById('input-area');
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => {
+      const offset = window.innerHeight - window.visualViewport.height;
+      if (offset > 100) {
+        // 键盘弹出：输入框跟随键盘，消息区加底部留白
+        inputArea.style.bottom = offset + 'px';
+        messagesEl.style.paddingBottom = (80 + offset) + 'px';
+        // 内容超出一屏则滚到底
+        if (messagesEl.scrollHeight > messagesEl.clientHeight) {
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+      } else {
+        // 键盘收起
+        inputArea.style.bottom = '0px';
+        messagesEl.style.paddingBottom = '80px';
+      }
+    });
+  }
+
+  // 锁定页面滚动
+  window.addEventListener('scroll', () => window.scrollTo(0, 0), { passive: false });
+  document.body.addEventListener('touchmove', (e) => {
+    if (!e.target.closest('#messages')) e.preventDefault();
+  }, { passive: false });
+
+  /* ---- IME composition ---- */
+  inputEl.addEventListener('compositionstart', () => { isComposing = true; });
+  inputEl.addEventListener('compositionend',   () => { isComposing = false; });
+
+  /* ---- Input events ---- */
+  inputEl.addEventListener('input', () => {
+    autoResizeTextarea();
+    updateSendButton();
+  });
+
+  inputEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      if (isComposing) return;
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  /* ---- Send button ---- */
+  sendBtn.addEventListener('click', sendMessage);
+
+  /* ---- Toast close ---- */
+  toastEl.querySelector('.toast-close').addEventListener('click', hideToast);
+
+  /* ==============================================================
+     sendMessage — 主发送流程
+     ============================================================== */
+  async function sendMessage() {
+    if (isLoading) return;
+
+    const text = inputEl.value.trim();
+    if (!text) return;
+
+    // 创建用户气泡
+    createBubble('user', escapeHtml(text));
+    inputEl.value = '';
+    autoResizeTextarea();
+    updateSendButton();
+
+    // 加载态 — loader 移到用户气泡下方
+    messagesEl.appendChild(loaderEl);
+    setLoading(true);
+    scrollToBottom();
+
+    // 发送请求
+    abortController = new AbortController();
+    const timeoutId = setTimeout(() => abortController.abort(), 30000);
+
+    try {
+      const res = await fetch('chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text }),
+        signal: abortController.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(`SERVER_ERROR:${res.status}:${errBody.error || res.statusText}`);
+      }
+
+      const data = await res.json();
+
+      if (!data || typeof data.reply !== 'string') {
+        throw new Error('PARSE_ERROR');
+      }
+
+      // 创建 AI 气泡
+      const renderedHtml = renderMarkdown(data.reply);
+      createBubble('ai', renderedHtml);
+
+    } catch (err) {
+      let msg = '请求失败，请稍后重试';
+      if (err.name === 'AbortError') {
+        msg = '请求超时，请稍后重试';
+      } else if (err.message.startsWith('SERVER_ERROR:')) {
+        const parts = err.message.split(':');
+        const statusCode = parseInt(parts[1], 10);
+        const serverMsg = parts.slice(2).join(':').trim();
+        if (statusCode >= 400 && statusCode < 500) {
+          msg = serverMsg || `请求错误（状态码 ${statusCode}）`;
+        } else {
+          msg = `服务异常（状态码 ${statusCode}），请稍后重试`;
+        }
+      } else if (err.message === 'PARSE_ERROR') {
+        msg = '数据解析失败，请稍后重试';
+      } else if (err instanceof TypeError) {
+        msg = '网络连接失败，请检查网络后重试';
+      }
+
+      createBubble('error', escapeHtml(msg));
+      showToast(msg);
+    } finally {
+      clearTimeout(timeoutId);
+      setLoading(false);
+      scrollToBottom();
+    }
+  }
+
+  /* ==============================================================
+     createBubble — 创建消息气泡 DOM
+     ============================================================== */
+  function createBubble(role, html) {
+    const div = document.createElement('div');
+    if (role === 'ai') {
+      div.className = 'bubble bubble--ai';
+    } else if (role === 'user') {
+      div.className = 'bubble bubble--user';
+    } else {
+      div.className = 'bubble bubble--error';
+    }
+    div.innerHTML = html;
+    messagesEl.appendChild(div);
+    return div;
+  }
+
+  /* ==============================================================
+     setLoading — 切换加载状态
+     ============================================================== */
+  function setLoading(loading) {
+    isLoading = loading;
+    if (loading) {
+      loaderEl.classList.add('visible');
+      inputEl.disabled = true;
+      sendBtn.disabled = true;
+    } else {
+      loaderEl.classList.remove('visible');
+      inputEl.disabled = false;
+      updateSendButton();
+    }
+  }
+
+  /* ==============================================================
+     scrollToBottom
+     ============================================================== */
+  function scrollToBottom() {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  /* ==============================================================
+     updateSendButton
+     ============================================================== */
+  function updateSendButton() {
+    sendBtn.disabled = inputEl.value.trim() === '' || isLoading;
+  }
+
+  /* ==============================================================
+     autoResizeTextarea
+     ============================================================== */
+  function autoResizeTextarea() {
+    inputEl.style.height = 'auto';
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
+  }
+
+  /* ==============================================================
+     Toast
+     ============================================================== */
+  function showToast(message) {
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTextEl.textContent = message;
+    toastEl.classList.add('visible');
+    toastTimer = setTimeout(hideToast, 3000);
+  }
+
+  function hideToast() {
+    toastEl.classList.remove('visible');
+    if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+  }
+
+  /* ==============================================================
+     escapeHtml — HTML 实体转义
+     ============================================================== */
+  function escapeHtml(text) {
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    return text.replace(/[&<>"']/g, ch => map[ch]);
+  }
+
+  /* ==============================================================
+     renderMarkdown — 简易 Markdown → HTML
+     处理顺序至关重要！
+     ============================================================== */
+  function renderMarkdown(text) {
+    // 0. 先转义 HTML（保留后续我们自己插入的标签）
+    let html = escapeHtml(text);
+
+    // 1. 代码块 ``` ... ```（优先，避免内部被后续规则破坏）
+    html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, (_m, lang, code) => {
+      return '<pre><code>' + code + '</code></pre>';
+    });
+
+    // 2. 行内代码 `code`
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+    // 3. 表格（包含 |---|---| 分隔行的连续行块）
+    html = html.replace(/((?:[^\n]*\|[^\n]*\n)+)/g, (block) => {
+      const lines = block.trim().split('\n');
+      if (lines.length < 2) return block;
+      // 检查是否有分隔行
+      const hasSep = lines.some(l => /^\|?\s*:?---+:?\s*\|/.test(l));
+      if (!hasSep) return block;
+
+      // 解析对齐
+      const alignRow = lines.find(l => /^\|?\s*:?---+:?\s*\|/.test(l));
+      const alignIdx = lines.indexOf(alignRow);
+      const aligns = [];
+      if (alignRow) {
+        const cells = alignRow.split('|').filter(c => c.trim() !== '');
+        cells.forEach(c => {
+               if (c.trim().match(/^:---/)) aligns.push('left');
+          else if (c.trim().match(/---:$/)) aligns.push('right');
+          else if (c.trim().match(/:---:/)) aligns.push('center');
+          else aligns.push('left');
+        });
+      }
+
+      const headerLine = lines[0];
+      const dataLines = lines.filter((_, i) => i !== alignIdx && i !== 0);
+
+      let tableHtml = '<table><thead><tr>';
+      const hCells = headerLine.split('|').filter(c => c.trim() !== '');
+      hCells.forEach((c, i) => {
+        const a = aligns[i] ? ' style="text-align:' + aligns[i] + '"' : '';
+        tableHtml += '<th' + a + '>' + c.trim() + '</th>';
+      });
+      tableHtml += '</tr></thead><tbody>';
+
+      dataLines.forEach(line => {
+        const dCells = line.split('|').filter(c => c.trim() !== '');
+        tableHtml += '<tr>';
+        dCells.forEach((c, i) => {
+          const a = aligns[i] ? ' style="text-align:' + aligns[i] + '"' : '';
+          tableHtml += '<td' + a + '>' + c.trim() + '</td>';
+        });
+        tableHtml += '</tr>';
+      });
+      tableHtml += '</tbody></table>';
+      return tableHtml;
+    });
+
+    // 4. 标题（行首 #，逐级处理 h6→h1 避免嵌套匹配）
+    html = html.replace(/^###### (.+)$/gm, '<h6>$1</h6>');
+    html = html.replace(/^##### (.+)$/gm, '<h5>$1</h5>');
+    html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+    html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+    html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+    html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+    // 5. 水平线
+    html = html.replace(/^(\*{3,}|-{3,})$/gm, '<hr>');
+
+    // 6. 加粗 **text**（先于斜体处理）
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+    // 7. 斜体 *text*
+    html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+    // 8. 链接 [text](url)
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+
+    // 9. 图片 ![alt](url)
+    html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%">');
+
+    // 10. 无序列表 — 识别连续的行首为 - 或 *  的块
+    html = html.replace(/((?:^[\t ]*[-*] .+$\n?)+)/gm, (listBlock) => {
+      const items = listBlock.trim().split('\n').map(l => '<li>' + l.replace(/^[\t ]*[-*] /, '') + '</li>');
+      return '<ul>' + items.join('') + '</ul>';
+    });
+
+    // 11. 有序列表 — 识别连续的行首为 数字. 的块
+    html = html.replace(/((?:^[\t ]*\d+\. .+$\n?)+)/gm, (listBlock) => {
+      const items = listBlock.trim().split('\n').map(l => '<li>' + l.replace(/^[\t ]*\d+\. /, '') + '</li>');
+      return '<ol>' + items.join('') + '</ol>';
+    });
+
+    // 12. 引用块 >
+    html = html.replace(/((?:^&gt; .+$\n?)+)/gm, (quoteBlock) => {
+      const content = quoteBlock.trim().split('\n').map(l => l.replace(/^&gt; /, '')).join('<br>');
+      return '<blockquote>' + content + '</blockquote>';
+    });
+
+    // 13. 段落处理：按双换行分段，段内单换行转 <br>
+    const paragraphs = html.split('\n\n');
+    html = paragraphs.map(p => {
+      const trimmed = p.trim();
+      if (!trimmed) return '';
+      // 如果已经是块级元素（h1-h6, ul, ol, pre, table, hr, blockquote），不包裹 <p>
+      if (/^<(h[1-6]|ul|ol|pre|table|hr|blockquote)/.test(trimmed)) {
+        return trimmed;
+      }
+      // 段内把单换行转 <br>
+      return '<p>' + trimmed.replace(/\n/g, '<br>') + '</p>';
+    }).join('\n');
+
+    return html;
+  }
+
+})();
+</script>
+</body>
+</html>

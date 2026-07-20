@@ -1,0 +1,17 @@
+{
+  "name": "kb-chat",
+  "version": "1.0.0",
+  "description": "多知识库对话检索服务 — URL路径映射不同知识库",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "js-yaml": "^4.1.0",
+    "node-fetch": "^3.3.2"
+  }
+}

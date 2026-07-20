@@ -1,0 +1,28 @@
+# =============================================================================
+# KB Chat — 知识库对话检索服务配置
+# routes: URL path → 知识库映射
+# =============================================================================
+
+server:
+  port: 3100
+
+# 知识库路由表
+# 每个路由指向一个知识库，包含：
+#   - name: 显示名称
+#   - systemPrompt: 系统提示词（定义角色 + 给出知识库内容）
+#   - tools: 可用工具列表（如 price_calculator）
+#   - description: 简短描述
+routes:
+  /price:
+    name: "帕劳报价查询"
+    description: "查询帕劳机酒+潜水套餐价格，自动计算成本价、实际成本价等"
+    systemPromptFile: "knowledge/price/system-prompt.md"
+    tools:
+      - lookup_package_price     # 查机酒套餐价格
+      - calculate_dive_cost       # 计算潜水费用明细
+
+  /info:
+    name: "帕劳航班与酒店信息"
+    description: "查询帕劳航班排期、酒店信息、特价活动、税费规则等"
+    systemPromptFile: "knowledge/info/system-prompt.md"
+    tools: []
