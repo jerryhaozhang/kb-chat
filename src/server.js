@@ -5,6 +5,7 @@ import config from './config.js';
 import { createChatRouter } from './routes/chat.js';
 import { chat } from './llm.js';
 import { lookupPackagePrice, executeLookupPackagePrice, calculateDiveCost, executeCalculateDiveCost } from './lib/price-tools.js';
+import { loadMemory, addTurn, buildContext, cleanupExpired } from './memory.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -48,7 +49,7 @@ app.get('/api/routes', (_req, res) => {
 // ============================================================================
 app.post('/chat', async (req, res) => {
   try {
-    const { message } = req.body;
+    const { message, sessionId } = req.body;
     if (!message || typeof message !== 'string' || !message.trim()) {
       return res.status(400).json({ error: '消息内容不能为空' });
     }
@@ -71,8 +72,10 @@ ${combinedPrompt}
     const allToolNames = [...new Set(routeConfigs.flatMap(r => r.tools || []))];
     const tools = allToolNames.map(name => TOOL_REGISTRY[name]?.definition).filter(Boolean);
 
+    const promptWithMemory = fullPrompt + buildContext(sessionId ? loadMemory(sessionId) : null);
+
     const messages = [
-      { role: 'system', content: fullPrompt },
+      { role: 'system', content: promptWithMemory },
       { role: 'user', content: message.trim() },
     ];
 
@@ -100,6 +103,8 @@ ${combinedPrompt}
       assistantMessage = response.choices[0].message;
     }
 
+    if (sessionId) addTurn(sessionId, message.trim(), assistantMessage.content || '');
+
     res.json({
       route: '/chat',
       kb: '奕海智能销售助理',
@@ -123,6 +128,7 @@ app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
 
 const port = config.server.port;
 app.listen(port, () => {
+  cleanupExpired(7);
   console.log(`\n🧠 KB Chat 启动: http://localhost:${port}`);
   console.log(`   Chat 页面: http://localhost:${port}/\n`);
 });

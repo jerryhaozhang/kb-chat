@@ -6,6 +6,7 @@
 
 import config from '../config.js';
 import { chat } from '../llm.js';
+import { loadMemory, addTurn, buildContext } from '../memory.js';
 import { lookupPackagePrice, executeLookupPackagePrice, calculateDiveCost, executeCalculateDiveCost } from '../lib/price-tools.js';
 
 // 工具注册表：name → { definition, execute }
@@ -32,7 +33,7 @@ async function handleChat(req, res) {
     return res.status(404).json({ error: `Unknown route: ${routePath}` });
   }
 
-  const { message } = req.body;
+  const { message, sessionId } = req.body;
   if (!message || typeof message !== 'string') {
     return res.status(400).json({ error: 'message (string) is required' });
   }
@@ -41,12 +42,13 @@ async function handleChat(req, res) {
   const systemPrompt = routeConfig.systemPrompt + `
 ---
 当前日期：2026年7月19日。用户在${routePath}路由下提问。`;
+  const fullPrompt = systemPrompt + buildContext(sessionId ? loadMemory(sessionId) : null);
 
   // 构建工具列表
   const toolNames = routeConfig.tools || [];
   const tools = toolNames.map(name => TOOL_REGISTRY[name]?.definition).filter(Boolean);
   const messages = [
-    { role: 'system', content: systemPrompt },
+    { role: 'system', content: fullPrompt },
     { role: 'user', content: message },
   ];
 
@@ -84,6 +86,7 @@ async function handleChat(req, res) {
     }
 
     // 返回最终回答
+    if (sessionId) addTurn(sessionId, message.trim(), assistantMessage.content || '');
     res.json({
       route: routePath,
       kb: routeConfig.name,

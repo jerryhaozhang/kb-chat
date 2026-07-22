@@ -488,6 +488,16 @@ html, body {
 (function () {
   'use strict';
 
+  /* ---- Session ID ---- */
+  const SESSION_ID = (() => {
+    let id = sessionStorage.getItem('kb_session_id');
+    if (!id) {
+      id = crypto.randomUUID();
+      sessionStorage.setItem('kb_session_id', id);
+    }
+    return id;
+  })();
+
   /* ---- DOM refs ---- */
   const messagesEl   = document.getElementById('messages');
   const inputEl      = document.getElementById('message-input');
@@ -583,7 +593,7 @@ html, body {
       const res = await fetch('chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: text, sessionId: SESSION_ID }),
         signal: abortController.signal,
       });
 
