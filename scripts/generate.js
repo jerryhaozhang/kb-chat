@@ -121,14 +121,28 @@ function buildPriceData(files) {
     if (!ndDur) continue;
     for (const table of sec.tables) {
       const hdr = table[0].join(',');
-      // 国庆表格格式: # | 路线 | 出发日 | 回程日 | 价格
-      if (hdr.includes('路线') && hdr.includes('出发日') && hdr.includes('价格')) {
-        nationalDay.trips[ndDur] = table.slice(1).map(row => ({
-          route: row[1],
-          date: row[2],
-          returnDate: row[3],
-          price: parseNum(row[4]),
-        }));
+      // 国庆表格格式（兼容两种表头）:
+      //   旧: # | 路线 | 出发日 | 回程日 | 价格
+      //   新: # | 路线 | 出发日 | 回程日 | 景观房 | 海景房 | 数据来源
+      const isNewFormat = hdr.includes('景观房') && hdr.includes('海景房');
+      const isOldFormat = hdr.includes('价格');
+      if (hdr.includes('路线') && hdr.includes('出发日') && (isOldFormat || isNewFormat)) {
+        if (isNewFormat) {
+          nationalDay.trips[ndDur] = table.slice(1).map(row => ({
+            route: row[1],
+            date: row[2],
+            returnDate: row[3],
+            priceJingguan: parseNum(row[4]),
+            priceHaijing: parseNum(row[5]),
+          }));
+        } else {
+          nationalDay.trips[ndDur] = table.slice(1).map(row => ({
+            route: row[1],
+            date: row[2],
+            returnDate: row[3],
+            price: parseNum(row[4]),
+          }));
+        }
       }
     }
   }
@@ -181,6 +195,33 @@ function buildPriceData(files) {
         }
       }
     }
+  }
+
+  // === 国庆后期全酒店价格（10.3-10.5）===
+  const holidayLate = { name: '国庆后期（10.3-10.5）', period: '10月3日-10月5日', columns: [], hotels: [] };
+  let inHolidayLate = false;
+  for (const sec of regSectionsAll) {
+    if (sec.text.match(/国庆后期/)) {
+      inHolidayLate = true;
+      for (const table of sec.tables) {
+        const hdr = table[0].join(',').replace(/<br>/g, ' ');
+        if (hdr.includes('酒店') && hdr.includes('房型') && hdr.includes('10.3')) {
+          holidayLate.columns = table[0].slice(2).map(c => {
+            const clean = c.replace(/<br>/g, ' ');
+            const dur = clean.includes('5天4晚') ? '5天4晚' : '6天5晚';
+            return { label: clean.trim(), duration: dur };
+          });
+          for (const row of table.slice(1)) {
+            const hotel = row[0].replace(/\*\*/g, '').trim();
+            const room = row[1].replace(/\*\*/g, '').trim();
+            const prices = row.slice(2).map(c => parseNum(c));
+            holidayLate.hotels.push({ hotel, room, prices });
+          }
+        }
+      }
+      continue;
+    }
+    if (inHolidayLate && sec.headingLevel <= 2) break;
   }
 
   // === HX 8-10月 特价 ===
@@ -266,7 +307,31 @@ function buildPriceData(files) {
     }
   }
 
-  return { nationalDay, hxSpecial, regular, surcharges, holidayFull };
+  // === COVE 酒店附加费 ===
+  const coveRe = /##\s*(\d+-\d+月)[\s\S]*?COVE酒店:\s*(.+?)\s*([+-]\d+)/g;
+  let coveM;
+  while ((coveM = coveRe.exec(surMd)) !== null) {
+    const season = coveM[1];
+    const dateStr = coveM[2];
+    const val = parseInt(coveM[3], 10);
+    // 展开复合日期: "7.30/31, 8.4/5/8/9/10/13/14/18/19"
+    const rules = {};
+    const parts = dateStr.split(/,\s*/);
+    for (const part of parts) {
+      const segs = part.split('/');
+      const basePrefix = segs[0].substring(0, segs[0].lastIndexOf('.') + 1);
+      const dates = [segs[0]];
+      for (let i = 1; i < segs.length; i++) {
+        const s = segs[i];
+        dates.push(s.includes('.') ? s : basePrefix + s);
+      }
+      for (const d of dates) rules[d] = val;
+    }
+    if (!surcharges[season]) surcharges[season] = {};
+    surcharges[season].COVE = rules;
+  }
+
+  return { nationalDay, hxSpecial, regular, surcharges, holidayFull, holidayLate };
 }
 
 // ============================================================
@@ -274,7 +339,7 @@ function buildPriceData(files) {
 // ============================================================
 
 function buildPricePrompt(data) {
-  const { nationalDay, hxSpecial, regular, surcharges, holidayFull } = data;
+  const { nationalDay, hxSpecial, regular, surcharges, holidayFull, holidayLate } = data;
 
   let p = `你是帕劳机酒套餐报价助手。你可以查表获取机酒套餐价格，然后按公式计算潜水行程的完整报价。
 
@@ -327,16 +392,39 @@ function buildPricePrompt(data) {
     }
   }
 
+  // === 国庆后期全酒店价格（10.3-10.5，次高优先）===
+  if (holidayLate && holidayLate.hotels.length > 0) {
+    p += `\n### ${holidayLate.name}（${holidayLate.period}）\n\n`;
+    p += `> 此价格为含附加费打包价，不叠加航空公司附加费。次高优先查询。\n\n`;
+    p += `| 酒店 | 房型 | ${holidayLate.columns.map(c => c.label).join(' | ')} |\n`;
+    p += `|------|------|${holidayLate.columns.map(() => ':---:').join('|')}|\n`;
+    for (const h of holidayLate.hotels) {
+      p += `| ${h.hotel} | ${h.room} | ${h.prices.map(p => fmt(p)).join(' | ')} |\n`;
+    }
+  }
+
   // === 国庆假日酒店专属套餐（仅假日酒店，10.3-10.9） ===
   p += `\n### ${nationalDay.name}（${nationalDay.period}）\n`;
   p += `> 仅限假日酒店。9月29日~10月2日假日酒店价格以上方国庆全酒店价格表为准，本套餐 10.3-10.9 时段有效。\n`;
   for (const [dur, trips] of Object.entries(nationalDay.trips)) {
     if (!trips || trips.length === 0) continue;
-    const validTrips = trips.filter(t => t.price > 0);
-    if (validTrips.length === 0) continue;
-    p += `\n**${dur}**：\n| 出发日 | 路线 | 回程日 | 价格 |\n|--------|------|--------|------|\n`;
-    for (const t of validTrips) {
-      p += `| ${t.date} | ${t.route} | ${t.returnDate} | ${fmt(t.price)} |\n`;
+    const hasDual = trips.some(t => t.priceJingguan !== undefined);
+    if (hasDual) {
+      // 新格式：景观房 + 海景房 双列
+      const validTrips = trips.filter(t => t.priceJingguan > 0 || t.priceHaijing > 0);
+      if (validTrips.length === 0) continue;
+      p += `\n**${dur}**：\n| 出发日 | 路线 | 回程日 | 景观房 | 海景房 |\n|--------|------|--------|:------:|:------:|\n`;
+      for (const t of validTrips) {
+        p += `| ${t.date} | ${t.route} | ${t.returnDate} | ${fmt(t.priceJingguan)} | ${fmt(t.priceHaijing)} |\n`;
+      }
+    } else {
+      // 旧格式：单价格列
+      const validTrips = trips.filter(t => t.price > 0);
+      if (validTrips.length === 0) continue;
+      p += `\n**${dur}**：\n| 出发日 | 路线 | 回程日 | 价格 |\n|--------|------|--------|------|\n`;
+      for (const t of validTrips) {
+        p += `| ${t.date} | ${t.route} | ${t.returnDate} | ${fmt(t.price)} |\n`;
+      }
     }
   }
 
@@ -374,15 +462,20 @@ function buildPricePrompt(data) {
     for (const [airline, rules] of Object.entries(airlines)) {
       if (Object.keys(rules).length === 0) continue;
       const items = Object.entries(rules).map(([d, v]) => `${d.replace('.','月')}日 ${v > 0 ? '+' : ''}${v}`);
-      p += `- ${airline}：${items.join('、')}\n`;
+      if (airline === 'COVE') {
+        p += `- ${airline}（酒店附加费）：${items.join('、')}\n`;
+      } else {
+        p += `- ${airline}：${items.join('、')}\n`;
+      }
     }
   }
 
   p += `\n## 查询优先级
 1. 国庆全酒店价格（9/29-10/2，全酒店适用）→ 最高，打包价无需叠加附加费
-2. 国庆假日酒店专属套餐（10/3-10/9，仅假日酒店）→ 次优先
-3. 特价信息（匹配航司+日期）→ 次优先
-4. 常规价格 + 航空公司附加费 → 无特价/无国庆时适用
+2. 国庆后期全酒店价格（10/3-10/5，全酒店适用）→ 次高，打包价无需叠加附加费
+3. 国庆假日酒店专属套餐（10/3-10/9，仅假日酒店）→ 参考（与国庆后期表重复时以后期表为准）
+4. 特价信息（匹配航司+日期）→ 次优先
+5. 常规价格 + 航空公司附加费 → 无特价/无国庆时适用
 
 ## 回答规范
 1. 确认日期、酒店、行程天数
@@ -393,7 +486,7 @@ function buildPricePrompt(data) {
   return p;
 }
 
-function buildInfoPrompt(files, holidayFull) {
+function buildInfoPrompt(files, holidayFull, holidayLate) {
   const flightSections = parseSections(files['航班信息.md']);
   const flightTable = flightSections.flatMap(s => s.tables).find(t => t[0] && t[0].join(',').includes('航班编号'));
 
@@ -414,6 +507,18 @@ function buildInfoPrompt(files, holidayFull) {
     holidayTable += `|------|------|${holidayFull.columns.map(() => ':---:').join('|')}|\n`;
     for (const h of holidayFull.hotels) {
       holidayTable += `| ${h.hotel} | ${h.room} | ${h.prices.map(p => fmt(p)).join(' | ')} |\n`;
+    }
+  }
+
+  // 国庆后期全酒店价格（动态从 holidayLate 生成）
+  let holidayLateTable = '';
+  if (holidayLate && holidayLate.hotels.length > 0) {
+    holidayLateTable += `\n## 国庆后期全酒店价格（${holidayLate.period}）\n\n`;
+    holidayLateTable += `> 全酒店国庆后期打包价，已含附加费，不叠加航空公司附加费。\n\n`;
+    holidayLateTable += `| 酒店 | 房型 | ${holidayLate.columns.map(c => c.label).join(' | ')} |\n`;
+    holidayLateTable += `|------|------|${holidayLate.columns.map(() => ':---:').join('|')}|\n`;
+    for (const h of holidayLate.hotels) {
+      holidayLateTable += `| ${h.hotel} | ${h.room} | ${h.prices.map(p => fmt(p)).join(' | ')} |\n`;
     }
   }
 
@@ -463,6 +568,7 @@ ${schedule}
 
 ${holidayFlights}
 ${holidayTable}
+${holidayLateTable}
 ${ndTable}
 ## 酒店价格概览（常规平季/旺季，非国庆）
 
@@ -494,7 +600,17 @@ ${ndTable}
 - 套餐包含：往返机票、酒店住宿（2人1间含早）、接送机车费
 - 套餐不含：天堂保护税、接送机小费
 
-## 航空公司附加费（9-12月，国庆期间9.29-10.2不适用）
+## 航空公司附加费
+
+### 7-8月
+- HX：7月30日 +1200、8月4日 +1900、8月8日 +2200、8月13日 +700、8月18日 +400、8月22日 +200、8月27日 -1300
+- HB：7月27日 +400、7月31日 +500、8月5日 +500、8月10日 +400、8月14日 +400、8月19日 -200、8月24日 -1300、8月28日 -1300
+- KR：7月30日 +400、7月26日 +200、8月4日 +500、8月9日 +500、8月13日 +400、8月18日 -200、8月23日 -600、8月27日 -1300
+
+### 酒店附加费（7-8月）
+- COVE酒店：7月30日 +300、7月31日 +300、8月4日 +300、8月5日 +300、8月8日 +300、8月9日 +300、8月10日 +300、8月13日 +300、8月14日 +300、8月18日 +300、8月19日 +300
+
+### 9-12月（国庆期间9.29-10.2不适用）
 - HX：9月24日 +500，10月8日 -700
 - HB：9月25日 +500，10月9日 -500
 - KR：9月24日 +500，10月8日 -700
@@ -538,7 +654,7 @@ function main() {
   console.log('   ✅ system-prompt.md');
 
   console.log('\n🔨 生成 /info...');
-  const infoPrompt = buildInfoPrompt(files, priceData.holidayFull);
+  const infoPrompt = buildInfoPrompt(files, priceData.holidayFull, priceData.holidayLate);
   fs.writeFileSync(path.join(OUT_INFO, 'system-prompt.md'), infoPrompt, 'utf-8');
   console.log('   ✅ system-prompt.md');
 

@@ -2,6 +2,26 @@
 
 > 记录前端 Chat 页面开发、生产部署及所有遇到的问题
 
+## 2026-07-25 — 知识库全面检查与修复
+
+### 背景
+
+按照知识库更新 SOP 对 Obsidian 源文件、generate.js 和生成的 knowledge/ 文件进行全面检查，发现并修复 5 个问题。
+
+### 修复内容
+
+1. **航班时刻不一致** — 航班信息.md 中 KR5561 时间为 `12:35/18:30`，与其余 4 个文件中的 `12:30/18:40` 不一致，统一为 `12:30-17:40 / 18:40-21:40`
+2. **生成文件过时** — data.json 中 7-8月 HX 附加费和 nationalDay 价格与 Obsidian 源不同步，重新生成后一致
+3. **nationalDay 表头适配** — 国庆假日酒店专属套餐.md 表头从"价格"改为"景观房/海景房"双列，generate.js 适配新旧两种格式
+4. **COVE 酒店附加费** — 新增解析价格备注规则.md 中 COVE 酒店附加费（7-8月，11 个日期），存入 data.json 并在 system-prompt 中展示
+5. **国庆后期全酒店价格** — 新增解析酒店价格速查.md 中 `## 国庆后期（10.3-10.5）` 的 18 酒店 × 4 日期列价格表，输出 `holidayLate` 字段
+
+### generate.js 改动
+
+- `buildPriceData()` — 适配 nationalDay 新旧两种表头（`hdr.includes('价格')` + `hdr.includes('景观房')`），新增 holidayLate 解析段，新增 COVE 附加费解析
+- `buildPricePrompt()` — 输出国庆后期价格表 + COVE 附加费，更新查询优先级为 5 级
+- `buildInfoPrompt(files, holidayFull, holidayLate)` — 新增 holidayLate 参数，输出国庆后期价格表
+
 ## 2026-07-22 — 国庆全酒店价格表更新
 
 ### 背景
