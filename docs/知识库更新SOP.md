@@ -106,6 +106,10 @@ knowledge/info/system-prompt.md    # /info 路由 LLM 上下文
 服务器没有 git，用 `scp` 上传：
 
 ```bash
+# ⚠️ 必须在项目根目录执行，使用相对路径！
+# 绝对路径会导致文件被放到 /data/kb-chat/ 根目录
+cd /Users/jerry/AIWorkspace/project-009-kb-chat
+
 # 一次性上传所有更新的文件
 scp \
   scripts/generate.js \
