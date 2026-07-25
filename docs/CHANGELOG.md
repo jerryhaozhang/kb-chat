@@ -25,11 +25,12 @@
 ### 部署问题记录
 
 1. **scp 绝对路径陷阱** — 使用绝对路径 `scp /Users/.../knowledge/price/data.json root@...:/data/kb-chat/` 会导致文件被放到 `/data/kb-chat/` 根目录而非 `/data/kb-chat/knowledge/price/` 子目录，且两个 `system-prompt.md` 会互相覆盖。**必须在项目目录下用相对路径执行**，或显式指定目标子路径。SOP 中的相对路径写法是正确的，执行时需注意 `pwd` 在项目根目录。
-2. **API 模型名变更** — DeepSeek API 已不再接受 `deepseek-chat`，需改为 `deepseek-v4-pro` 或 `deepseek-v4-flash`。本次部署未修改此配置（属于服务端 .env 配置问题，非 KB 更新范围）。
+2. **API 模型名变更** — DeepSeek API 已废弃 `deepseek-chat`，需改为 `deepseek-v4-pro`（2026-07-25 修复）。表现：所有查询返回 502。修复：改 `.env` 中 `DEEPSEEK_MODEL=deepseek-v4-pro` 并重启。
 
 ### SOP 改进
 
 - 在 Step 6 增加注意事项：scp 必须从项目根目录执行，使用相对路径
+- 在常见问题新增：502 排查（模型名过期）
 
 ## 2026-07-22 — 国庆全酒店价格表更新
 

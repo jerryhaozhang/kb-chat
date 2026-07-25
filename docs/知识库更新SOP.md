@@ -161,6 +161,13 @@ node -e "
 ### Q: 服务器上 scp 路径
 `scp` 不支持目录递归到嵌套路径，如果目标目录不存在会报错。目标路径的父目录（`/data/kb-chat/knowledge/price/` 等）必须已存在。
 
+### Q: 线上查询返回 502
+**排查**：先确认健康检查 `/inside_knowledge/health` 是否正常，如果正常但查询 502，检查服务器 `.env` 中 `DEEPSEEK_MODEL` 是否为当前有效模型名（目前为 `deepseek-v4-pro`）。DeepSeek 可能废弃旧模型名导致 API 调用失败。
+```bash
+ssh root@124.222.56.216 "grep DEEPSEEK_MODEL /data/kb-chat/.env"
+```
+修复后 `pm2 restart kb-chat` 即可，无需重新部署 KB 文件。
+
 ### Q: 改 Obsidian 后线上多久生效
 没有自动同步。必须手动执行 Step 4→5→6→7。全流程约 5 分钟。
 
