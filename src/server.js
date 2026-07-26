@@ -112,6 +112,9 @@ ${combinedPrompt}
     });
   } catch (err) {
     console.error('[chat]', err.message);
+    if (err.name === 'AbortError') {
+      return res.status(504).json({ error: 'AI 模型响应超时，正在优化中，请稍后重试' });
+    }
     res.status(502).json({ error: `LLM error: ${err.message}` });
   }
 });

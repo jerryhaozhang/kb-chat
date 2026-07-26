@@ -587,7 +587,7 @@ html, body {
 
     // 发送请求
     abortController = new AbortController();
-    const timeoutId = setTimeout(() => abortController.abort(), 30000);
+    const timeoutId = setTimeout(() => abortController.abort(), 60000);
 
     try {
       const res = await fetch('chat', {
